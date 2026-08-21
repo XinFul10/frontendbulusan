@@ -1,0 +1,552 @@
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { 
+  PlusIcon, 
+  MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
+  PencilIcon,
+  TrashIcon,
+  ClockIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon
+} from '@heroicons/react/24/outline'
+import { format } from 'date-fns'
+import AddTransactionModal from '../components/Transactions/AddTransactionModal'
+import DeleteTransactionModal from '../components/Transactions/DeleteTransactionModal'
+import ObligationHistoryModal from '../components/Transactions/ObligationHistoryModal'
+import SetBudgetModal from '../components/Dashboard/SetBudgetModal'
+import { transactionService } from '../services/transactionService'
+import toast from 'react-hot-toast'
+import * as XLSX from 'xlsx'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import { scrollToElement } from '../utils/notificationNavigation'
+import { SkeletonTable } from '../components/Skeleton'
+
+const defaultCategories = [
+  { id: '', name: 'All Categories' },
+  { id: 1, name: 'Capacity Development' },
+  { id: 2, name: 'TM & Promotions' },
+  { id: 3, name: 'Socio-Cultural & Eco' },
+  { id: 4, name: 'Product & Market Dev' }
+]
+
+const statusOptions = [
+  { value: '', label: 'All Status' },
+  { value: 'fully', label: 'Fully Obligated' },
+  { value: 'partial', label: 'Partially Obligated' },
+  { value: 'not_started', label: 'Not Started' }
+]
+
+const Transactions = () => {
+  const [searchParams] = useSearchParams()
+  const highlightRequestId = searchParams.get('requestId')
+  const rowRefs = useRef({})
+  const handledHighlight = useRef(null)
+  const [transactions, setTransactions] = useState([])
+  const [filteredTransactions, setFilteredTransactions] = useState([])
+  const [categories, setCategories] = useState(defaultCategories)
+  const [loading, setLoading] = useState(true)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editData, setEditData] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [historyTarget, setHistoryTarget] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [showBudgetModal, setShowBudgetModal] = useState(false)
+  const { user, isAdmin, canSetBudget } = useAuth()
+  
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  const fetchTransactions = useCallback(async () => {
+    try {
+      setLoading(true)
+      const [transactionsResponse, categoriesResponse] = await Promise.all([
+        transactionService.getAll(),
+        transactionService.getCategories()
+      ])
+      setTransactions(transactionsResponse.data)
+      setFilteredTransactions(transactionsResponse.data)
+      setCategories([{ id: '', name: 'All Categories' }, ...(categoriesResponse.data?.data?.length ? categoriesResponse.data.data : defaultCategories.slice(1))])
+    } catch (error) {
+      toast.error('Failed to load transactions')
+      setCategories(defaultCategories)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTransactions()
+
+    // Listen for keyboard shortcuts
+    const handleFocusSearch = () => {
+      document.getElementById('search-input')?.focus()
+    }
+    const handleRefresh = () => fetchTransactions()
+
+    window.addEventListener('focusSearch', handleFocusSearch)
+    window.addEventListener('refreshData', handleRefresh)
+
+    return () => {
+      window.removeEventListener('focusSearch', handleFocusSearch)
+      window.removeEventListener('refreshData', handleRefresh)
+    }
+  }, [fetchTransactions])
+
+  // Apply filters
+  useEffect(() => {
+    let filtered = [...transactions]
+
+    // Search
+    if (searchTerm) {
+      filtered = filtered.filter(t => 
+        t.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    // Category
+    if (categoryFilter) {
+      filtered = filtered.filter(t => t.category_id === parseInt(categoryFilter))
+    }
+
+    // Status
+    if (statusFilter) {
+      filtered = filtered.filter(t => {
+        const pct = (t.obligated_amount / t.allocated_amount) * 100
+        if (statusFilter === 'fully') return pct >= 100
+        if (statusFilter === 'partial') return pct > 0 && pct < 100
+        if (statusFilter === 'not_started') return pct === 0
+        return true
+      })
+    }
+
+    // Date range
+    if (dateFrom) {
+      filtered = filtered.filter(t => t.transaction_date >= dateFrom)
+    }
+    if (dateTo) {
+      filtered = filtered.filter(t => t.transaction_date <= dateTo)
+    }
+
+    setFilteredTransactions(filtered)
+    setCurrentPage(1)
+  }, [transactions, searchTerm, categoryFilter, statusFilter, dateFrom, dateTo])
+
+  // Auto-highlight transaction from notification ?requestId=
+  useEffect(() => {
+    if (loading || !highlightRequestId || filteredTransactions.length === 0) return
+    if (handledHighlight.current === highlightRequestId) return
+
+    const index = filteredTransactions.findIndex((t) => t.request_id === highlightRequestId)
+    if (index < 0) return
+
+    const targetPage = Math.floor(index / pageSize) + 1
+    if (currentPage !== targetPage) {
+      setCurrentPage(targetPage)
+      return
+    }
+
+    handledHighlight.current = highlightRequestId
+    const transaction = filteredTransactions[index]
+    scrollToElement(rowRefs.current[transaction.id])
+  }, [loading, highlightRequestId, filteredTransactions, pageSize, currentPage])
+
+  // Pagination
+  const totalPages = Math.ceil(filteredTransactions.length / pageSize)
+  const paginatedData = filteredTransactions.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  )
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    
+    try {
+      setIsDeleting(true)
+      await transactionService.delete(deleteTarget.id)
+      toast.success('Transaction deleted')
+      setDeleteTarget(null)
+      fetchTransactions()
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete transaction')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleEdit = (transaction) => {
+    setEditData({
+      ...transaction,
+      date: transaction.transaction_date,
+    })
+    setIsModalOpen(true)
+  }
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: 'PHP',
+      minimumFractionDigits: 2
+    }).format(amount || 0)
+  }
+
+  const getStatus = (allocated, obligated) => {
+    const pct = (obligated / allocated) * 100
+    if (pct >= 100) return { label: 'Fully', color: 'bg-success' }
+    if (pct > 0) return { label: 'Partial', color: 'bg-warning' }
+    return { label: 'Not Started', color: 'bg-gray-400' }
+  }
+
+  const exportToCSV = () => {
+    const data = filteredTransactions.map(t => ({
+      Date: format(new Date(t.transaction_date), 'MMM dd, yy'),
+      Description: t.description,
+      Category: t.category_name,
+      Allocated: t.allocated_amount,
+      Obligated: t.obligated_amount,
+      Balance: t.balance
+    }))
+    
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Transactions')
+    XLSX.writeFile(wb, `transactions_${new Date().toISOString().split('T')[0]}.xlsx`)
+    toast.success('Exported to Excel')
+  }
+
+  const exportToPDF = () => {
+    const doc = new jsPDF()
+    doc.text('OMTO Budget Tracker - Transactions', 14, 15)
+    doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy')}`, 14, 25)
+    
+    const tableData = filteredTransactions.map(t => [
+      format(new Date(t.transaction_date), 'MMM dd, yy'),
+      t.description,
+      t.category_name,
+      formatCurrency(t.allocated_amount),
+      formatCurrency(t.obligated_amount),
+      formatCurrency(t.balance)
+    ])
+
+    autoTable(doc, {
+      head: [['Date', 'Description', 'Category', 'Allocated', 'Obligated', 'Balance']],
+      body: tableData,
+      startY: 35,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [30, 58, 138] }
+    })
+
+    doc.save(`transactions_${new Date().toISOString().split('T')[0]}.pdf`)
+    toast.success('Exported to PDF')
+  }
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-text-dark">Transactions</h1>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {canSetBudget() && (
+            <button
+              onClick={() => setShowBudgetModal(true)}
+              className="btn-secondary flex items-center justify-center gap-2 min-h-[44px] flex-1 sm:flex-initial"
+            >
+              Set Budget
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setEditData(null)
+              setIsModalOpen(true)
+            }}
+            className="btn-primary flex items-center justify-center gap-2 min-h-[44px] flex-1 sm:flex-initial"
+          >
+            <PlusIcon className="w-5 h-5" />
+            New Transaction
+          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="card space-y-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Search */}
+          <div className="flex-1 relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-light" />
+            <input
+              id="search-input"
+              type="text"
+              placeholder="Search by description..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="input-field pl-10"
+            />
+          </div>
+
+          {/* Category Filter */}
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="input-field md:w-48"
+          >
+            {categories.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="input-field md:w-48"
+          >
+            {statusOptions.map(s => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Date Range & Export */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="input-field w-full sm:w-auto"
+              aria-label="Date from"
+            />
+            <span className="text-text-light text-sm font-medium px-1">to</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="input-field w-full sm:w-auto"
+              aria-label="Date to"
+            />
+          </div>
+          
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={exportToCSV}
+              className="btn-secondary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+            >
+              <ArrowDownTrayIcon className="w-4 h-4" />
+              CSV
+            </button>
+            <button
+              onClick={exportToPDF}
+              className="btn-secondary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+            >
+              <ArrowDownTrayIcon className="w-4 h-4" />
+              PDF
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="card p-0 sm:p-6 overflow-hidden">
+        <div className="responsive-table-wrap">
+        <table className="w-full min-w-[640px]">
+          <thead>
+            <tr>
+              <th className="table-header">Date</th>
+              <th className="table-header">Description</th>
+              <th className="table-header">Created By</th>
+              <th className="table-header">Category</th>
+              <th className="table-header text-right">Allocated</th>
+              <th className="table-header text-right">Obligated</th>
+              <th className="table-header text-right">Balance</th>
+              <th className="table-header">Status</th>
+              <th className="table-header text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {loading ? (
+              <SkeletonTable rows={8} cols={8}
+                colWidths={['w-20','w-full','w-28','w-24','w-24','w-24','w-20','w-16']} />
+            ) : paginatedData.length === 0 ? (
+              <tr>
+                <td colSpan="9" className="text-center py-8 text-text-light">
+                  No transactions found
+                </td>
+              </tr>
+            ) : (
+              paginatedData.map((transaction) => {
+                const status = getStatus(transaction.allocated_amount, transaction.obligated_amount)
+                const isHighlighted = highlightRequestId && transaction.request_id === highlightRequestId
+                const entriesCount = transaction.obligation_entries?.length || 0
+
+                return (
+                  <tr
+                    key={transaction.id}
+                    ref={(el) => { rowRefs.current[transaction.id] = el }}
+                    className={`hover:bg-gray-50 transition-colors duration-300 ${
+                      isHighlighted ? 'ring-2 ring-inset ring-primary/50 bg-primary/5' : ''
+                    }`}
+                  >
+                    <td className="table-cell">
+                      {format(new Date(transaction.transaction_date), 'MMM dd, yy')}
+                    </td>
+                    <td className="table-cell">{transaction.description}</td>
+                    <td className="table-cell">{transaction.creator_name || 'Unknown'}</td>
+                    <td className="table-cell">{transaction.category_name}</td>
+                    <td className="table-cell text-right font-medium">
+                      {formatCurrency(transaction.allocated_amount)}
+                    </td>
+                    <td className="table-cell text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span className="text-danger font-semibold">
+                          {formatCurrency(transaction.obligated_amount)}
+                        </span>
+                        {entriesCount > 0 && (
+                          <button
+                            onClick={() => setHistoryTarget(transaction)}
+                            className="inline-flex items-center text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-1.5 py-0.5 rounded transition-colors font-medium cursor-pointer"
+                            title="View Obligation Entries History"
+                          >
+                            {entriesCount} {entriesCount === 1 ? 'entry' : 'entries'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="table-cell text-right text-success font-medium">
+                      {formatCurrency(transaction.balance)}
+                    </td>
+                    <td className="table-cell">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs text-white ${status.color}`}>
+                        {status.label}
+                      </span>
+                    </td>
+                    <td className="table-cell">
+                      <div className="flex justify-center gap-1">
+                        {entriesCount > 0 && (
+                          <button
+                            onClick={() => setHistoryTarget(transaction)}
+                            className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center text-text-light hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                            title="View Obligation History"
+                          >
+                            <ClockIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(isAdmin() || transaction.created_by === user?.id) && (
+                          <button
+                            onClick={() => handleEdit(transaction)}
+                            className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center text-primary hover:bg-primary/10 rounded transition-colors"
+                            title="Add Obligation"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(isAdmin() || transaction.created_by === user?.id) && (
+                          <button
+                            onClick={() => setDeleteTarget(transaction)}
+                            className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center text-danger hover:bg-danger/10 rounded transition-colors"
+                            title="Delete"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mt-4 pt-4 px-4 sm:px-0 border-t border-gray-200">
+          <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2">
+            <span className="text-sm text-text-light">Rows per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value))
+                setCurrentPage(1)
+              }}
+              className="input-field py-1 px-2 w-20"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span className="text-sm text-text-light hidden sm:inline">
+              Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, filteredTransactions.length)} of {filteredTransactions.length}
+            </span>
+          </div>
+          
+          <div className="flex items-center justify-between sm:justify-end gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeftIcon className="w-5 h-5" />
+            </button>
+            <span className="text-sm text-text-dark">
+              Page {currentPage} of {totalPages || 1}
+            </span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRightIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Add / Edit Modal */}
+      <AddTransactionModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setEditData(null)
+        }}
+        onSuccess={fetchTransactions}
+        editData={editData}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteTransactionModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        transaction={deleteTarget}
+        loading={isDeleting}
+      />
+
+      {/* Obligation History Modal */}
+      <ObligationHistoryModal
+        isOpen={Boolean(historyTarget)}
+        onClose={() => setHistoryTarget(null)}
+        transaction={historyTarget}
+      />
+
+      {/* Set Budget Modal */}
+      <SetBudgetModal
+        isOpen={showBudgetModal}
+        onClose={() => setShowBudgetModal(false)}
+        onSuccess={() => {
+          window.dispatchEvent(new Event('refreshData'))
+        }}
+      />
+    </div>
+  )
+}
+
+export default Transactions
+
