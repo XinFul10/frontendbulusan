@@ -21,7 +21,7 @@ const normalize = (value) => (value ?? '').trim().toLowerCase()
 
 const departmentCanApprove = (user, stepName) => {
   if (!user || !stepName) return false
-  if (user.role === 'head of tourism') return true
+  if (user.role === 'admin' || user.role === 'head of tourism') return true
   if (!user.department) return false
 
   const userDept = normalize(user.department)
@@ -115,8 +115,18 @@ const Tracking = () => {
 
   const loadRequests = useCallback(async () => {
     const response = await requestService.getAll()
-    setRequests(response.data || [])
-  }, [])
+    const list = response.data || []
+    setRequests(list)
+    setSelectedRequest((prev) => {
+      if (prev) {
+        return list.find((r) => (r.requestId || r.id) === (prev.requestId || prev.id)) || prev
+      }
+      if (list.length > 0 && !requestIdParam) {
+        return list.find((r) => r.status !== 'Completed' && r.status !== 'Rejected') || list[0]
+      }
+      return null
+    })
+  }, [requestIdParam])
 
   useEffect(() => {
     const load = async () => {

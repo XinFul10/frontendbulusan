@@ -132,7 +132,7 @@ const BudgetProgressStepper = ({
       </div>
 
       {/* Normal department approve button */}
-      {canApprove && onApprove && (
+      {canApprove && onApprove && (!isPrivileged || !requestIsActive) && (
         <div className="mt-6 flex justify-center">
           <button
             type="button"
@@ -162,7 +162,7 @@ const BudgetProgressStepper = ({
               type="button"
               disabled={adminActing || isCompleted}
               onClick={onAdminApproveStage}
-              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-primary text-primary text-sm font-semibold hover:bg-primary hover:text-white active:bg-primary-dark active:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-primary text-primary text-sm font-semibold hover:bg-primary hover:text-white active:bg-primary-dark active:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors duration-200"
             >
               <ChevronRightIcon className="w-4 h-4" />
               {adminActing ? 'Processing…' : 'Approve This Stage'}
@@ -174,7 +174,7 @@ const BudgetProgressStepper = ({
               type="button"
               disabled={adminActing || isCompleted}
               onClick={onAdminFastTrack}
-              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-warning text-white text-sm font-semibold hover:bg-amber-600 active:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-warning text-white text-sm font-semibold hover:bg-amber-600 active:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors duration-200"
             >
               <BoltIcon className="w-4 h-4" />
               {adminActing ? 'Processing…' : 'Fast-Track to Completed'}
