@@ -108,8 +108,17 @@ const Dashboard = () => {
     )
   }
 
-  // Filter categories with actual data (allocation > 0 or obligated > 0)
-  const categoriesWithData = stats?.categories?.filter(cat => cat.allocation > 0 || cat.obligated > 0) || []
+  const currentYear = new Date().getFullYear()
+  const todayFormatted = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+
+  const categories = stats?.categories || []
+  const hasCategories = categories.length > 0
+  const categoriesWithData = categories.filter(cat => cat.allocation > 0 || cat.obligated > 0)
   const hasData = categoriesWithData.length > 0
 
   return (
@@ -120,11 +129,11 @@ const Dashboard = () => {
           <div>
             <h1 className="text-lg sm:text-2xl font-bold">MUNICIPALITY OF BULUSAN</h1>
             <p className="text-white/80 mt-1 text-sm sm:text-base">Office of the Municipal Tourism Office (OMTO)</p>
-            <p className="text-white/60 text-xs sm:text-sm mt-2">Fiscal Year Budget Allocation & Obligation Tracker</p>
+            <p className="text-white/70 text-xs sm:text-sm mt-2">{todayFormatted}</p>
           </div>
           <div className="sm:text-right">
-            <p className="text-sm text-white/60">Current Year</p>
-            <p className="text-2xl sm:text-3xl font-bold">2026</p>
+            <p className="text-xs sm:text-sm text-white/70">Fiscal Year</p>
+            <p className="text-2xl sm:text-3xl font-bold">{currentYear}</p>
           </div>
         </div>
       </div>
@@ -161,11 +170,11 @@ const Dashboard = () => {
       </div>
 
       {/* Budget Category Cards */}
-      {hasData ? (
+      {hasCategories ? (
         <div>
           <h2 className="text-lg sm:text-xl font-semibold text-text-dark mb-4">Budget by Category</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
-            {categoriesWithData.map((category) => (
+            {categories.map((category) => (
               <BudgetCard
                 key={category.id}
                 category={category.name}

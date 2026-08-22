@@ -24,11 +24,18 @@ const Header = () => {
     await logout()
   }
 
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  })
+
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 h-14 sm:h-16 flex items-center justify-between px-4 sm:px-6 pl-14 lg:pl-6 sticky top-0 z-20">
       <div>
-        <h2 className="text-text-light text-sm">
-          <span className="font-semibold text-text-dark">2026</span>
+        <h2 className="text-text-light text-xs sm:text-sm font-medium">
+          <span className="font-semibold text-text-dark">{new Date().getFullYear()}</span> • {today}
         </h2>
       </div>
 

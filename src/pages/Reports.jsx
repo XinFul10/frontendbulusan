@@ -284,7 +284,7 @@ const Reports = () => {
       const response = await reportService.create({
         type: selectedReport,
         type_label: reportTypes.find(t => t.value === selectedReport)?.label,
-        date_from: dateFrom || '2026-01-01',
+        date_from: dateFrom || `${new Date().getFullYear()}-01-01`,
         date_to: dateTo || format(new Date(), 'yyyy-MM-dd'),
         category: categoryFilter || 'All',
         verification_code: generatedCode

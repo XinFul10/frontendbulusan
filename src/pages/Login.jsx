@@ -88,7 +88,7 @@ const Login = () => {
             </div>
             <h1 className="text-xl font-bold text-text-dark">Municipality of Bulusan</h1>
             <p className="text-sm text-text-light mt-1">OMTO Budget Tracker</p>
-            <p className="text-xs text-text-light mt-1">2026</p>
+            <p className="text-xs text-text-light mt-1">{new Date().getFullYear()}</p>
           </div>
 
           {/* Form */}
@@ -178,7 +178,7 @@ const Login = () => {
           </div>
 
           <p className="text-center text-xs text-text-light mt-4">
-            © 2026 Municipality of Bulusan. All rights reserved.
+            © {new Date().getFullYear()} Municipality of Bulusan. All rights reserved.
           </p>
         </div>
       </div>

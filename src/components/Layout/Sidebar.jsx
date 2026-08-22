@@ -103,7 +103,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
 
         <div className="p-4 border-t border-primary-light/30">
           {!isCollapsed && (
-            <p className="text-xs text-white/60 text-center">Year 2026</p>
+            <p className="text-xs text-white/60 text-center">Fiscal Year {new Date().getFullYear()}</p>
           )}
         </div>
       </aside>
