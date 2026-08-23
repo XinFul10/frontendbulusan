@@ -10,7 +10,7 @@ import {
 } from '@heroicons/react/24/outline'
 import BudgetProgressStepper, { getActiveStepIndex } from '../components/Tracking/BudgetProgressStepper'
 import { useAuth } from '../context/AuthContext'
-import { approvalService, requestService } from '../services/transactionService'
+import { requestService } from '../services/transactionService'
 import { getStatusClass } from '../utils/requestStatus'
 import { scrollToElement } from '../utils/notificationNavigation'
 import { SkeletonTable } from '../components/Skeleton'
@@ -44,12 +44,20 @@ const departmentCanApprove = (user, stepName) => {
   return userDept.includes(stepDept) || stepDept.includes(userDept)
 }
 
+const DEFAULT_TIMELINE_STEPS = [
+  { id: 1, name: 'Budget Requested', approved: false, approved_at: null },
+  { id: 2, name: 'Department Head', approved: false, approved_at: null },
+  { id: 3, name: 'Budget Office', approved: false, approved_at: null },
+  { id: 4, name: 'Finance Office', approved: false, approved_at: null },
+  { id: 5, name: "Mayor's Office", approved: false, approved_at: null },
+  { id: 6, name: 'Completed', approved: false, approved_at: null },
+]
+
 const Tracking = () => {
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
   const requestIdParam = searchParams.get('requestId')
   const [requests, setRequests] = useState([])
-  const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
   const [approving, setApproving] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState(null)
@@ -71,8 +79,8 @@ const Tracking = () => {
   )
 
   const timelineDepartments = useMemo(
-    () => selectedRequest?.departments || departments,
-    [departments, selectedRequest]
+    () => selectedRequest?.departments || DEFAULT_TIMELINE_STEPS,
+    [selectedRequest]
   )
 
   const activeStepIndex = useMemo(() => getActiveStepIndex(timelineDepartments), [timelineDepartments])
@@ -82,10 +90,10 @@ const Tracking = () => {
   )
 
   const canApprove = useMemo(() => {
-    if (!currentStep || currentStep.approved) return false
+    if (!selectedRequest || !currentStep || currentStep.approved) return false
     if (['Budget Requested', 'Completed'].includes(currentStep.name)) return false
     return departmentCanApprove(user, currentStep.name)
-  }, [currentStep, user])
+  }, [selectedRequest, currentStep, user])
 
   const requestIsActive = useMemo(() => {
     if (!selectedRequest) return false
@@ -108,11 +116,6 @@ const Tracking = () => {
   const pagedRequests = requests.slice(pageStart, pageEnd)
 
   // ── Data loading ───────────────────────────────────────────────────────────
-  const loadApprovalSteps = useCallback(async () => {
-    const response = await approvalService.getSteps()
-    setDepartments(response.data || [])
-  }, [])
-
   const loadRequests = useCallback(async () => {
     const response = await requestService.getAll()
     const list = response.data || []
@@ -121,18 +124,15 @@ const Tracking = () => {
       if (prev) {
         return list.find((r) => (r.requestId || r.id) === (prev.requestId || prev.id)) || prev
       }
-      if (list.length > 0 && !requestIdParam) {
-        return list.find((r) => r.status !== 'Completed' && r.status !== 'Rejected') || list[0]
-      }
       return null
     })
-  }, [requestIdParam])
+  }, [])
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true)
-        await Promise.all([loadApprovalSteps(), loadRequests()])
+        await loadRequests()
       } catch (e) {
         toast.error('Failed to load tracking data')
       } finally {
@@ -143,7 +143,7 @@ const Tracking = () => {
     const handleRefresh = () => load()
     window.addEventListener('refreshData', handleRefresh)
     return () => window.removeEventListener('refreshData', handleRefresh)
-  }, [loadApprovalSteps, loadRequests])
+  }, [loadRequests])
 
   // ── Select a request + scroll + flash ─────────────────────────────────────
   const selectRequest = useCallback(async (request, { scroll = false } = {}) => {
@@ -199,29 +199,16 @@ const Tracking = () => {
 
   // ── Normal department approval ─────────────────────────────────────────────
   const handleApprove = async () => {
-    if (!currentStep?.id) return
+    if (!selectedRequest?.id || !currentStep?.id) return
     setApproving(true)
     try {
-      if (selectedRequest?.id) {
-        const requestKey = selectedRequest.requestId || selectedRequest.id
-        const response = await requestService.approveStep(requestKey, currentStep.id)
-        setSelectedRequest(response.data || selectedRequest)
-        await loadRequests()
-        toast.success('Approval recorded')
-        window.dispatchEvent(new Event('notifications:refresh'))
-        window.dispatchEvent(new Event('refreshData'))
-        return
-      }
-
-      const approvalStep = departments.find((step) => step.name === currentStep?.name)
-      if (!approvalStep?.id) return
-
-      const response = await approvalService.approve(approvalStep.id)
-      setDepartments(response.data || [])
+      const requestKey = selectedRequest.requestId || selectedRequest.id
+      const response = await requestService.approveStep(requestKey, currentStep.id)
+      setSelectedRequest(response.data || selectedRequest)
       await loadRequests()
       toast.success('Approval recorded')
-      window.dispatchEvent(new Event('refreshData'))
       window.dispatchEvent(new Event('notifications:refresh'))
+      window.dispatchEvent(new Event('refreshData'))
     } catch (e) {
       const message = e.response?.data?.message || 'Failed to record approval'
       toast.error(message)
@@ -368,6 +355,7 @@ const Tracking = () => {
 
         <BudgetProgressStepper
           departments={timelineDepartments}
+          hasSelectedRequest={Boolean(selectedRequest)}
           onApprove={handleApprove}
           canApprove={canApprove}
           approving={approving}

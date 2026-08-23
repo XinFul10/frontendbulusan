@@ -24,6 +24,7 @@ const BudgetProgressStepper = ({
   approving = false,
   approveLabel = 'Approve',
   className = '',
+  hasSelectedRequest = true,
   // Admin override props
   isPrivileged = false,
   requestIsActive = false,
@@ -32,11 +33,14 @@ const BudgetProgressStepper = ({
   adminActing = false,
   pendingStageNames = [],
 }) => {
-  const activeIndex = useMemo(() => getActiveStepIndex(departments), [departments])
+  const activeIndex = useMemo(() => {
+    if (!hasSelectedRequest) return -1
+    return getActiveStepIndex(departments)
+  }, [departments, hasSelectedRequest])
 
   const isCompleted = useMemo(() =>
-    departments.length > 0 && departments.every(s => s.approved),
-    [departments]
+    hasSelectedRequest && departments.length > 0 && departments.every(s => s.approved),
+    [departments, hasSelectedRequest]
   )
 
   if (!departments.length) {
@@ -56,8 +60,8 @@ const BudgetProgressStepper = ({
       <div className="overflow-x-auto pb-2 -mx-1 px-1 md:overflow-visible">
         <ol className="flex items-start min-w-max md:min-w-0 md:w-full gap-0 list-none m-0 p-0">
           {departments.map((step, index) => {
-            const isApproved = Boolean(step.approved)
-            const isActive = index === activeIndex && !isApproved
+            const isApproved = hasSelectedRequest && Boolean(step.approved)
+            const isActive = hasSelectedRequest && index === activeIndex && !isApproved
             const isPending = !isApproved && !isActive
             const isLast = index === departments.length - 1
             const lineApproved = isApproved && index < departments.length - 1
@@ -132,7 +136,7 @@ const BudgetProgressStepper = ({
       </div>
 
       {/* Normal department approve button */}
-      {canApprove && onApprove && (!isPrivileged || !requestIsActive) && (
+      {hasSelectedRequest && canApprove && onApprove && (!isPrivileged || !requestIsActive) && (
         <div className="mt-6 flex justify-center">
           <button
             type="button"
@@ -146,7 +150,7 @@ const BudgetProgressStepper = ({
       )}
 
       {/* Admin / Head of Tourism override panel */}
-      {isPrivileged && requestIsActive && (
+      {hasSelectedRequest && isPrivileged && requestIsActive && (
         <div className="mt-6 border-t border-dashed border-gray-300 pt-5">
           <div className="flex items-center gap-2 mb-3">
             <ShieldCheckIcon className="w-4 h-4 text-primary shrink-0" />
