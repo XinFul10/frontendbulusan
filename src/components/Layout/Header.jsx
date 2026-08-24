@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronDownIcon,
@@ -11,7 +11,7 @@ import NotificationDropdown from './NotificationDropdown'
 // Apply cache-busting to avatar URLs for fresh loads
 const bustAvatarCache = (url) => {
   if (!url || url.startsWith('blob:')) return url
-  return `${url}?t=${Date.now()}`
+  return \?t=\
 }
 
 const Header = () => {
@@ -24,22 +24,34 @@ const Header = () => {
     await logout()
   }
 
-  const today = new Date().toLocaleDateString('en-US', {
+  const now = new Date()
+  const today = now.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric'
   })
 
+  const shortDate = now.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  })
+
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 h-14 sm:h-16 flex items-center justify-between px-4 sm:px-6 pl-14 lg:pl-6 sticky top-0 z-20">
-      <div>
-        <h2 className="text-text-light text-xs sm:text-sm font-medium">
-          <span className="font-semibold text-text-dark">{new Date().getFullYear()}</span> • {today}
+    <header className="bg-white shadow-sm border-b border-gray-200 h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 pl-14 sm:pl-16 lg:pl-6 sticky top-0 z-20 gap-2">
+      <div className="min-w-0 flex-1">
+        <h2 className="text-text-light text-xs sm:text-sm font-medium truncate whitespace-nowrap">
+          <span className="hidden sm:inline">
+            <span className="font-semibold text-text-dark">{now.getFullYear()}</span> &bull; {today}
+          </span>
+          <span className="sm:hidden font-medium text-text-dark">
+            {shortDate}
+          </span>
         </h2>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
         <NotificationDropdown
           unreadCount={unreadCount}
           onUnreadCountChange={setUnreadCount}

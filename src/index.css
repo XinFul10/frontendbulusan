@@ -141,7 +141,9 @@
   header,
   footer,
   .no-print,
-  .print\:hidden {
+  .print\:hidden,
+  button[aria-label="Open menu"],
+  button[aria-label="Close menu"] {
     display: none !important;
   }
 

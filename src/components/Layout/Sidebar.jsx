@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   HomeIcon,
@@ -32,7 +32,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
     <>
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="fixed top-4 left-4 z-50 lg:hidden p-2 rounded-md bg-primary text-white"
+        className="fixed top-4 left-4 z-50 lg:hidden p-2 rounded-md bg-primary text-white flex-shrink-0"
         aria-label={isMobileOpen ? 'Close menu' : 'Open menu'}
       >
         {isMobileOpen ? (
