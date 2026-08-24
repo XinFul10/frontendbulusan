@@ -7,7 +7,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'https://backendbulusan.onrender.com/api',
+        target: 'https://backendbulusan.onrender.com/ap',
         changeOrigin: true
       }
     }
