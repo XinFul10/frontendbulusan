@@ -33,7 +33,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
       {!isMobileOpen && (
         <button
           onClick={() => setIsMobileOpen(true)}
-          className="fixed top-3.5 left-3 sm:top-4 sm:left-4 z-30 lg:hidden p-2 rounded-md bg-primary text-white flex-shrink-0 shadow-sm min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="fixed top-2 left-3 sm:top-3 sm:left-4 z-30 lg:hidden p-2 rounded-lg bg-primary text-white hover:bg-primary-light transition-colors flex-shrink-0 shadow-sm w-10 h-10 flex items-center justify-center"
           aria-label="Open menu"
         >
           <Bars3Icon className="w-6 h-6" />

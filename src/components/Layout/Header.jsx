@@ -39,13 +39,13 @@ const Header = () => {
   })
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 pl-14 sm:pl-16 lg:pl-6 sticky top-0 z-20 gap-2">
-      <div className="min-w-0 flex-1">
+    <header className="bg-white shadow-sm border-b border-gray-200 h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 pl-16 lg:pl-6 sticky top-0 z-20 gap-3">
+      <div className="min-w-0 flex-1 flex items-center">
         <h2 className="text-text-light text-xs sm:text-sm font-medium truncate whitespace-nowrap">
           <span className="hidden sm:inline">
             <span className="font-semibold text-text-dark">{now.getFullYear()}</span> &bull; {today}
           </span>
-          <span className="sm:hidden font-medium text-text-dark">
+          <span className="sm:hidden font-semibold text-sm text-text-dark tracking-tight">
             {shortDate}
           </span>
         </h2>
