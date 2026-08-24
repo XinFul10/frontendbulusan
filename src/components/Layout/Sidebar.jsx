@@ -30,17 +30,15 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
 
   return (
     <>
-      <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="fixed top-4 left-4 z-50 lg:hidden p-2 rounded-md bg-primary text-white flex-shrink-0"
-        aria-label={isMobileOpen ? 'Close menu' : 'Open menu'}
-      >
-        {isMobileOpen ? (
-          <XMarkIcon className="w-6 h-6" />
-        ) : (
+      {!isMobileOpen && (
+        <button
+          onClick={() => setIsMobileOpen(true)}
+          className="fixed top-3.5 left-3 sm:top-4 sm:left-4 z-30 lg:hidden p-2 rounded-md bg-primary text-white flex-shrink-0 shadow-sm min-w-[44px] min-h-[44px] flex items-center justify-center"
+          aria-label="Open menu"
+        >
           <Bars3Icon className="w-6 h-6" />
-        )}
-      </button>
+        </button>
+      )}
 
       <aside
         className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-primary-darker via-primary-dark to-primary text-white flex flex-col transition-all duration-300 z-40
@@ -49,8 +47,8 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
       >
         <div className={`p-4 border-b border-primary-light/30 ${isCollapsed ? 'flex flex-col items-center gap-2' : ''}`}>
           <div className={`flex items-center ${isCollapsed ? 'flex-col gap-2' : 'justify-between gap-3'}`}>
-            <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-              <div className={`rounded-full overflow-hidden ${isCollapsed ? 'w-12 h-12' : 'w-14 h-14'} flex-shrink-0 bg-white/10`}>
+            <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''} min-w-0`}>
+              <div className={`rounded-full overflow-hidden ${isCollapsed ? 'w-12 h-12' : 'w-12 h-12 sm:w-14 sm:h-14'} flex-shrink-0 bg-white/10`}>
                 <img 
                   src={bulusanLogo} 
                   alt="Municipality of Bulusan Logo" 
@@ -58,16 +56,18 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                 />
               </div>
               {!isCollapsed && (
-                <div>
-                  <h1 className="font-bold text-sm leading-tight">Municipality of</h1>
-                  <h2 className="font-bold text-lg leading-tight">BULUSAN</h2>
+                <div className="min-w-0">
+                  <h1 className="font-bold text-sm leading-tight truncate">Municipality of</h1>
+                  <h2 className="font-bold text-base sm:text-lg leading-tight truncate">BULUSAN</h2>
                 </div>
               )}
             </div>
+            
+            {/* Desktop collapse button */}
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="hidden rounded-md p-2 text-white/80 hover:bg-white/10 hover:text-white transition-colors lg:inline-flex items-center justify-center"
+              className="hidden rounded-md p-2 text-white/80 hover:bg-white/10 hover:text-white transition-colors lg:inline-flex items-center justify-center min-w-[40px] min-h-[40px]"
               aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {isCollapsed ? (
@@ -76,11 +76,21 @@ const Sidebar = ({ isCollapsed, onToggleCollapse }) => {
                 <ChevronLeftIcon className="w-5 h-5" />
               )}
             </button>
+
+            {/* Mobile close button (aligned to top-right of drawer header) */}
+            <button
+              type="button"
+              onClick={() => setIsMobileOpen(false)}
+              className="lg:hidden p-2 rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors flex items-center justify-center min-w-[44px] min-h-[44px] flex-shrink-0"
+              aria-label="Close menu"
+            >
+              <XMarkIcon className="w-6 h-6" />
+            </button>
           </div>
-          {!isCollapsed && <p className="text-xs mt-2 text-white/60">OMTO</p>}
+          {!isCollapsed && <p className="text-xs mt-1 text-white/60">OMTO</p>}
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-1">
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {menuItems.map((item) => (
             <NavLink
               key={item.path}
