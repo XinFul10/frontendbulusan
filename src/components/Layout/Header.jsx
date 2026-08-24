@@ -11,7 +11,7 @@ import NotificationDropdown from './NotificationDropdown'
 // Apply cache-busting to avatar URLs for fresh loads
 const bustAvatarCache = (url) => {
   if (!url || url.startsWith('blob:')) return url
-  return \?t=\
+  return `${url}?t=${Date.now()}`
 }
 
 const Header = () => {
